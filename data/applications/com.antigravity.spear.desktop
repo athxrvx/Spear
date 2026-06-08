@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Spear
+Comment=Raycast-like launcher for GNOME
+Exec=spear
+Icon=com.antigravity.spear
+Terminal=false
+Categories=Utility;GNOME;GTK;
+Keywords=launcher;search;run;apps;files;calculator;web;
+StartupNotify=false

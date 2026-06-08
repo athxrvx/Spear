@@ -56,7 +56,6 @@ fn install_binary(project_dir: &Path) -> Result<PathBuf, String> {
     Ok(dest)
 }
 
-
 fn create_autostart_entry(binary: &Path) -> Result<(), String> {
     let dir = home_dir().join(".config").join("autostart");
     fs::create_dir_all(&dir).map_err(|e| format!("Could not create autostart dir: {e}"))?;
@@ -67,7 +66,7 @@ fn create_autostart_entry(binary: &Path) -> Result<(), String> {
          Name=Spear Daemon\n\
          Comment=Start Spear launcher daemon in background\n\
          Exec=bash -c \"{binary} --quit ; {binary}\"\n\
-         Icon=system-search\n\
+         Icon=com.antigravity.spear\n\
          Terminal=false\n\
          Type=Application\n\
          Categories=Utility;\n\
@@ -81,6 +80,54 @@ fn create_autostart_entry(binary: &Path) -> Result<(), String> {
         .map_err(|e| format!("Write error: {e}"))?;
 
     println!("✅  Autostart entry → {path:?}");
+    Ok(())
+}
+
+fn install_desktop_entry(project_dir: &Path, binary: &Path) -> Result<(), String> {
+    let desktop_src = project_dir
+        .join("data")
+        .join("applications")
+        .join("com.antigravity.spear.desktop");
+    let icon_src = project_dir
+        .join("data")
+        .join("icons")
+        .join("hicolor")
+        .join("scalable")
+        .join("apps")
+        .join("com.antigravity.spear.svg");
+
+    if !desktop_src.exists() {
+        return Err(format!("Desktop file not found at {desktop_src:?}"));
+    }
+    if !icon_src.exists() {
+        return Err(format!("Application icon not found at {icon_src:?}"));
+    }
+
+    let applications_dir = home_dir().join(".local").join("share").join("applications");
+    let icons_dir = home_dir()
+        .join(".local")
+        .join("share")
+        .join("icons")
+        .join("hicolor")
+        .join("scalable")
+        .join("apps");
+    fs::create_dir_all(&applications_dir)
+        .map_err(|e| format!("Could not create applications dir {applications_dir:?}: {e}"))?;
+    fs::create_dir_all(&icons_dir)
+        .map_err(|e| format!("Could not create icons dir {icons_dir:?}: {e}"))?;
+
+    let desktop_dest = applications_dir.join("com.antigravity.spear.desktop");
+    let icon_dest = icons_dir.join("com.antigravity.spear.svg");
+    let desktop_content = fs::read_to_string(&desktop_src)
+        .map_err(|e| format!("Failed to read desktop entry: {e}"))?
+        .replace("Exec=spear\n", &format!("Exec={}\n", binary.display()));
+    fs::write(&desktop_dest, desktop_content)
+        .map_err(|e| format!("Failed to install desktop entry: {e}"))?;
+    fs::copy(&icon_src, &icon_dest)
+        .map_err(|e| format!("Failed to install application icon: {e}"))?;
+
+    println!("✅  Desktop entry → {desktop_dest:?}");
+    println!("✅  Application icon → {icon_dest:?}");
     Ok(())
 }
 
@@ -274,7 +321,10 @@ fn main() {
         eprintln!("⚠️   Custom icons installation failed: {e}");
     }
 
-
+    // 2c. Install desktop launcher and application icon
+    if let Err(e) = install_desktop_entry(&project_dir, &binary) {
+        eprintln!("⚠️   Desktop entry installation failed: {e}");
+    }
 
     // 4. Autostart entry
     if let Err(e) = create_autostart_entry(&binary) {

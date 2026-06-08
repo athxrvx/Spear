@@ -63,16 +63,16 @@ fn run_init_setup() -> Result<(), String> {
     let autostart_dir = home_path.join(".config").join("autostart");
     let _ = fs::create_dir_all(&autostart_dir);
     let autostart_file = autostart_dir.join("spear.desktop");
-    
-    let binary_path = std::env::current_exe()
-        .unwrap_or_else(|_| PathBuf::from("/usr/bin/spear"));
+
+    let binary_path =
+        std::env::current_exe().unwrap_or_else(|_| PathBuf::from("/usr/bin/spear"));
 
     let autostart_content = format!(
         "[Desktop Entry]\n\
          Name=Spear Daemon\n\
          Comment=Start Spear launcher daemon in background\n\
          Exec=bash -c \"{binary} --quit ; {binary}\"\n\
-         Icon=system-search\n\
+         Icon=com.antigravity.spear\n\
          Terminal=false\n\
          Type=Application\n\
          Categories=Utility;\n\

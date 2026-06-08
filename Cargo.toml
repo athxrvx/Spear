@@ -33,7 +33,9 @@ section = "utils"
 priority = "optional"
 assets = [
     ["target/release/spear", "usr/bin/spear", "755"],
-    ["icons/*", "usr/share/spear/icons/", "644"]
+    ["icons/*", "usr/share/spear/icons/", "644"],
+    ["data/applications/com.antigravity.spear.desktop", "usr/share/applications/com.antigravity.spear.desktop", "644"],
+    ["data/icons/hicolor/scalable/apps/com.antigravity.spear.svg", "usr/share/icons/hicolor/scalable/apps/com.antigravity.spear.svg", "644"]
 ]
 
 [package.metadata.generate-rpm]
@@ -43,5 +45,7 @@ description = "Raycast-like launcher for GNOME built with Rust and Libadwaita"
 license = "MIT"
 assets = [
     { source = "target/release/spear", dest = "/usr/bin/spear", mode = "755" },
-    { source = "icons/*", dest = "/usr/share/spear/icons/", mode = "644" }
+    { source = "icons/*", dest = "/usr/share/spear/icons/", mode = "644" },
+    { source = "data/applications/com.antigravity.spear.desktop", dest = "/usr/share/applications/com.antigravity.spear.desktop", mode = "644" },
+    { source = "data/icons/hicolor/scalable/apps/com.antigravity.spear.svg", dest = "/usr/share/icons/hicolor/scalable/apps/com.antigravity.spear.svg", mode = "644" }
 ]
