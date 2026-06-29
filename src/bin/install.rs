@@ -61,12 +61,18 @@ fn create_autostart_entry(binary: &Path) -> Result<(), String> {
     let dir = home_dir().join(".config").join("autostart");
     fs::create_dir_all(&dir).map_err(|e| format!("Could not create autostart dir: {e}"))?;
 
-    let path = dir.join("spear.desktop");
+    // Delete legacy autostart file if present
+    let legacy_autostart = dir.join("spear.desktop");
+    if legacy_autostart.exists() {
+        let _ = fs::remove_file(legacy_autostart);
+    }
+
+    let path = dir.join("com.athxrvx.spear.desktop");
     let content = format!(
         "[Desktop Entry]\n\
          Name=Spear Daemon\n\
          Comment=Start Spear launcher daemon in background\n\
-         Exec=bash -c \"{binary} --quit ; {binary}\"\n\
+         Exec=bash -c \"{binary} --quit ; {binary} --daemon\"\n\
          Icon=system-search\n\
          Terminal=false\n\
          Type=Application\n\
@@ -81,6 +87,32 @@ fn create_autostart_entry(binary: &Path) -> Result<(), String> {
         .map_err(|e| format!("Write error: {e}"))?;
 
     println!("✅  Autostart entry → {path:?}");
+    Ok(())
+}
+
+fn create_desktop_entry(binary: &Path) -> Result<(), String> {
+    let dir = home_dir().join(".local").join("share").join("applications");
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not create applications dir: {e}"))?;
+
+    let path = dir.join("com.athxrvx.spear.desktop");
+    let content = format!(
+        "[Desktop Entry]\n\
+         Name=Spear\n\
+         Comment=Spear Launcher\n\
+         Exec={binary}\n\
+         Icon=system-search\n\
+         Terminal=false\n\
+         Type=Application\n\
+         Categories=Utility;\n\
+         StartupNotify=false\n",
+        binary = binary.display()
+    );
+
+    let mut f = fs::File::create(&path).map_err(|e| format!("Could not write desktop entry: {e}"))?;
+    f.write_all(content.as_bytes())
+        .map_err(|e| format!("Write error: {e}"))?;
+
+    println!("✅  Desktop application entry → {path:?}");
     Ok(())
 }
 
@@ -281,6 +313,11 @@ fn main() {
         eprintln!("⚠️   Autostart entry: {e}");
     }
 
+    // 4b. Desktop application entry
+    if let Err(e) = create_desktop_entry(&binary) {
+        eprintln!("⚠️   Desktop application entry: {e}");
+    }
+
     // 5. GNOME shortcut (optional – skip if gsettings is unavailable)
     let shortcut = args
         .iter()
@@ -302,7 +339,7 @@ fn main() {
     println!("  Shortcut  : {shortcut}");
     println!();
     println!("  To start the daemon now:");
-    println!("    spear");
+    println!("    spear --daemon");
     println!();
     println!("  To toggle the launcher:");
     println!("    Press {shortcut}");

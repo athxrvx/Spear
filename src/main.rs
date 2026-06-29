@@ -62,7 +62,14 @@ fn run_init_setup() -> Result<(), String> {
     // 3. Create autostart entry
     let autostart_dir = home_path.join(".config").join("autostart");
     let _ = fs::create_dir_all(&autostart_dir);
-    let autostart_file = autostart_dir.join("spear.desktop");
+    
+    // Clean up legacy autostart file if present
+    let legacy_autostart = autostart_dir.join("spear.desktop");
+    if legacy_autostart.exists() {
+        let _ = fs::remove_file(legacy_autostart);
+    }
+    
+    let autostart_file = autostart_dir.join("com.athxrvx.spear.desktop");
     
     let binary_path = std::env::current_exe()
         .unwrap_or_else(|_| PathBuf::from("/usr/bin/spear"));
@@ -71,7 +78,7 @@ fn run_init_setup() -> Result<(), String> {
         "[Desktop Entry]\n\
          Name=Spear Daemon\n\
          Comment=Start Spear launcher daemon in background\n\
-         Exec=bash -c \"{binary} --quit ; {binary}\"\n\
+         Exec=bash -c \"{binary} --quit ; {binary} --daemon\"\n\
          Icon=system-search\n\
          Terminal=false\n\
          Type=Application\n\
@@ -86,6 +93,25 @@ fn run_init_setup() -> Result<(), String> {
     f.write_all(autostart_content.as_bytes())
         .map_err(|e| format!("Could not write autostart content: {e}"))?;
     println!("✅  Created startup entry at {:?}", autostart_file);
+
+    // Create desktop application entry to register AppID for GNOME Shell focus mapping
+    let apps_dir = home_path.join(".local").join("share").join("applications");
+    let _ = fs::create_dir_all(&apps_dir);
+    let app_desktop_file = apps_dir.join("com.athxrvx.spear.desktop");
+    let app_desktop_content = format!(
+        "[Desktop Entry]\n\
+         Name=Spear\n\
+         Comment=Spear Launcher\n\
+         Exec={binary}\n\
+         Icon=system-search\n\
+         Terminal=false\n\
+         Type=Application\n\
+         Categories=Utility;\n\
+         StartupNotify=false\n",
+        binary = binary_path.display()
+    );
+    let _ = fs::write(&app_desktop_file, app_desktop_content.as_bytes());
+    println!("✅  Created desktop application entry at {:?}", app_desktop_file);
 
     // 4. Register GNOME global shortcut
     let shortcut = &settings.shortcut;
@@ -134,6 +160,18 @@ fn main() -> glib::ExitCode {
         HOLD_GUARD.with(|cell| *cell.borrow_mut() = Some(guard));
     });
 
+    let pm_activate = plugin_manager.clone();
+    let settings_activate = settings.clone();
+    app.connect_activate(move |app| {
+        WINDOW.with(|cell| {
+            let mut opt = cell.borrow_mut();
+            if opt.is_none() {
+                *opt = Some(SpearWindow::new(app, pm_activate.clone(), settings_activate.clone()));
+            }
+            opt.as_ref().unwrap().toggle_visibility();
+        });
+    });
+
     let pm_clone = plugin_manager.clone();
     let settings_clone = settings.clone();
     app.connect_command_line(move |app, cmd_line| {
@@ -149,6 +187,7 @@ fn main() -> glib::ExitCode {
                             Usage: spear [options]\n\n\
                             Options:\n\
                               -t, --toggle          Toggle window visibility (default if no options passed)\n\
+                              -d, --daemon          Start the background daemon silently without showing the window\n\
                               -q, --quit            Quit the launcher background daemon\n\
                               -s, --status          Print the daemon running status\n\
                               -l, --list-plugins    List all enabled search plugins\n\
@@ -217,16 +256,21 @@ fn main() -> glib::ExitCode {
             return 0;
         }
 
+        let is_daemon = args_str.contains(&"--daemon".to_string()) || args_str.contains(&"-d".to_string());
+
         // Initialize and toggle window
-        let pm = pm_clone.clone();
-        let settings = settings_clone.clone();
-        WINDOW.with(|cell| {
-            let mut opt = cell.borrow_mut();
-            if opt.is_none() {
-                *opt = Some(SpearWindow::new(app, pm, settings));
-            }
-            opt.as_ref().unwrap().toggle_visibility();
-        });
+        if !is_daemon {
+            app.activate();
+        } else {
+            let pm = pm_clone.clone();
+            let settings = settings_clone.clone();
+            WINDOW.with(|cell| {
+                let mut opt = cell.borrow_mut();
+                if opt.is_none() {
+                    *opt = Some(SpearWindow::new(app, pm, settings));
+                }
+            });
+        }
 
         0
     });

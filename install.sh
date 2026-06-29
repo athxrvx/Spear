@@ -385,7 +385,7 @@ main() {
   echo -e "${G}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${W}  Spear is ready!${NC}"
   echo ""
-  echo -e "  ${D}Run:${NC}  ${W}spear${NC}"
+  echo -e "  ${D}Run:${NC}  ${W}spear --daemon${NC}"
   echo -e "  ${D}Key:${NC}  ${SHORTCUT:-<Alt>space}"
   echo ""
   echo -e "  ${D}Quit:${NC} ${W}spear --quit${NC}"
