@@ -21,7 +21,6 @@ thread_local! {
 fn run_init_setup() -> Result<(), String> {
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::process::Command;
     use std::io::Write;
 
     let home = std::env::var("HOME").map_err(|e| format!("HOME not set: {e}"))?;

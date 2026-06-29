@@ -1,7 +1,5 @@
 use crate::plugins::{Action, ResultItem, Plugin};
 use font_kit::source::SystemSource;
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
 
 pub struct FontSearchPlugin;
 
