@@ -33,12 +33,36 @@ impl Plugin for AppsPlugin {
     fn query(&self, query_text: &str, _settings: &crate::settings::AppSettings) -> Vec<ResultItem> {
         let apps = self.apps.borrow();
         if query_text.trim().is_empty() {
-            // Show first 10 apps
-            return apps
+            // Load frecency store to surface most frecent apps
+            let frecency = crate::frecency::FrecencyStore::load();
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            let mut apps_with_score: Vec<(gio::AppInfo, i32)> = apps
                 .iter()
                 .filter(|app| app.should_show())
+                .map(|app| {
+                    let name = app.name().to_string();
+                    let id = app
+                        .id()
+                        .map(|id| id.to_string())
+                        .unwrap_or_else(|| name.clone());
+                    let score = frecency.get_frecency_score(&id, now);
+                    (app.clone(), score)
+                })
+                .collect();
+
+            // Sort by frecency score desc, then by name alphabetically
+            apps_with_score.sort_by(|a, b| {
+                b.1.cmp(&a.1).then_with(|| a.0.name().to_lowercase().cmp(&b.0.name().to_lowercase()))
+            });
+
+            return apps_with_score
+                .into_iter()
                 .take(10)
-                .map(|app| self.format_app(app, 0))
+                .map(|(app, score)| self.format_app(&app, score))
                 .collect();
         }
 

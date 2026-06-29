@@ -401,6 +401,7 @@ struct WindowState {
     channel_sender: async_channel::Sender<(String, Vec<ResultItem>, Option<String>)>,
 
     settings: Rc<RefCell<AppSettings>>,
+    frecency_store: Rc<RefCell<crate::frecency::FrecencyStore>>,
     css_provider: gtk4::CssProvider,
 
     preview_panel: gtk4::Box,
@@ -736,6 +737,8 @@ impl SpearWindow {
             Option<String>, // error
         )>();
 
+        let frecency_store = Rc::new(RefCell::new(crate::frecency::FrecencyStore::load()));
+
         let state = Rc::new(RefCell::new(WindowState {
             window,
             entry,
@@ -754,6 +757,7 @@ impl SpearWindow {
             current_items: Vec::new(),
             channel_sender,
             settings,
+            frecency_store,
             css_provider: provider,
             preview_panel,
             preview_icon,
@@ -860,6 +864,19 @@ impl SpearWindow {
                     });
                 }
 
+                // Apply frecency boost to flat_items scores
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                {
+                    let f_store = state.frecency_store.borrow();
+                    for item in &mut flat_items {
+                        let boost = f_store.get_frecency_score(&item.id, now);
+                        item.score += boost;
+                    }
+                }
+
                 // Sort by score descending
                 flat_items.sort_by(|a, b| b.score.cmp(&a.score));
                 state.current_items = flat_items;
@@ -964,6 +981,7 @@ impl SpearWindow {
                 let entry = state.entry.clone();
                 let search_icon = state.search_icon.clone();
                 let listbox = state.listbox.clone();
+                let frecency_store = state.frecency_store.clone();
                 
                 drop(state);
                 
@@ -978,6 +996,7 @@ impl SpearWindow {
                     &entry,
                     &search_icon,
                     &listbox,
+                    &frecency_store,
                 );
             }
         });
@@ -1025,6 +1044,7 @@ impl SpearWindow {
                             let entry = window_state.entry.clone();
                             let search_icon = window_state.search_icon.clone();
                             let listbox = window_state.listbox.clone();
+                            let frecency_store = window_state.frecency_store.clone();
                             
                             drop(window_state);
                             
@@ -1039,6 +1059,7 @@ impl SpearWindow {
                                 &entry,
                                 &search_icon,
                                 &listbox,
+                                &frecency_store,
                             );
                         }
                     }
@@ -1107,6 +1128,7 @@ impl SpearWindow {
                     let entry = state.entry.clone();
                     let search_icon = state.search_icon.clone();
                     let listbox = state.listbox.clone();
+                    let frecency_store = state.frecency_store.clone();
                     
                     drop(state);
                     
@@ -1121,6 +1143,7 @@ impl SpearWindow {
                         &entry,
                         &search_icon,
                         &listbox,
+                        &frecency_store,
                     );
                 }
             }
@@ -1172,6 +1195,7 @@ impl SpearWindow {
                 let entry = state.entry.clone();
                 let search_icon = state.search_icon.clone();
                 let listbox = state.listbox.clone();
+                let frecency_store = state.frecency_store.clone();
                 
                 drop(state);
                 
@@ -1186,6 +1210,7 @@ impl SpearWindow {
                     &entry,
                     &search_icon,
                     &listbox,
+                    &frecency_store,
                 );
             }
         });
@@ -1493,7 +1518,11 @@ fn execute_action(
     entry: &gtk4::Entry,
     search_icon: &gtk4::Image,
     listbox: &gtk4::ListBox,
+    frecency_store: &Rc<RefCell<crate::frecency::FrecencyStore>>,
 ) {
+    // Record execution for frecency
+    frecency_store.borrow_mut().record_access(&item.id);
+
     if index >= item.actions.len() {
         return;
     }

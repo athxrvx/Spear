@@ -4,6 +4,7 @@ mod plugin_manager;
 mod settings;
 mod window;
 mod layer_shell;
+pub mod frecency;
 
 use std::sync::Arc;
 use std::rc::Rc;
